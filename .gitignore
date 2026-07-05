@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+
+*.zip
+
+*.log
+
+.aws/
+
+.DS_Store
+
+.ipynb_checkpoints/
