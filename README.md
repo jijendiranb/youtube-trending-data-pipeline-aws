@@ -7,35 +7,28 @@ A production-style AWS Data Engineering pipeline that ingests YouTube Trending d
 
 ## Architecture
 
-YouTube API + Historical CSV
-        |
-     Lambda (yt-data-ingestion-layer)
-        |
-        v
-S3 Bronze (yt-data-bronze-layer)
-        |
-        +------------------------------+
-        |                              |
-        v                              v
-Glue (yt-data-bronze-to-silver)   Lambda (yt-data-json-to-parquet)
-        |                              |
-        +--------------+---------------+
-                       |
-                       v
-S3 Silver (yt-data-silver-layer)
-                       |
-                 Data Quality
-             (yt-data-quality)
-                       |
-              Pass / Fail
-             /            \
-           Fail          Pass
-            |              |
-           SNS         Glue (yt-data-silver-to-gold)
-            |              |
-            v              v
-       Notification   S3 Gold (yt-data-gold-layer)
+The pipeline follows the **Medallion Architecture** pattern with three data layers:
 
+```
+Data Sources          Bronze              Silver            Quality Gate          Gold              Analytics
+┌──────────┐     ┌──────────────┐    ┌──────────────┐    ┌────────────┐    ┌──────────────┐    ┌──────────┐
+│ YouTube  │     │              │    │              │    │            │    │  trending_   │    │          │
+│ API v3   │────>│  Raw JSON    │───>│  Cleansed    │───>│  DQ Lambda │───>│  analytics   │───>│  Athena  │
+│          │     │  (S3)        │    │  Parquet     │    │  Validates │    │              │    │          │
+├──────────┤     │              │    │  (S3)        │    │  row count │    │  channel_    │    ├──────────┤
+│ Kaggle   │     │  Raw CSV     │    │              │    │  nulls     │    │  analytics   │    │  Quick-  │
+│ Dataset  │────>│  (S3)        │    │  Reference   │    │  schema    │    │              │    │  Sight   │
+│          │     │              │    │  Parquet     │    │  freshness │    │  category_   │    │          │
+└──────────┘     └──────────────┘    └──────────────┘    └────────────┘    │  analytics   │    └──────────┘
+                                                              │           └──────────────┘
+                                                         fail │
+                                                              ▼
+                                                        ┌────────────┐
+                                                        │  SNS Alert │
+                                                        └────────────┘
+```
+
+**Orchestration** is handled by AWS Step Functions, which coordinates the full pipeline with retry logic, parallel execution, and failure notifications.
 ## Tech Stack
 
 - AWS Lambda
